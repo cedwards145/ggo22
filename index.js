@@ -35,7 +35,8 @@ function generateMap() {
         for (let y = 0; y < MAP_SIZE; y++) {
             map[getMapIndex(x, y)] = {
                 threat: Math.random(),
-                type: BUILDING_TYPES[Math.floor(Math.random() * BUILDING_TYPES.length)]
+                type: BUILDING_TYPES[Math.floor(Math.random() * BUILDING_TYPES.length)],
+                secure: false
             };
         }
     }
@@ -94,6 +95,12 @@ io.on("connection", (socket) => {
         MAP_DATA[getMapIndex(player.x, player.y)].threat = 0;
         sendUpdate();
     });
+
+    // Secure building handler
+    socket.on("secure", message => {
+        MAP_DATA[getMapIndex(message.x, message.y)].secure = true;
+        sendUpdate();
+    });
 });
 
 const tick = setInterval(() => {
@@ -113,7 +120,7 @@ const tick = setInterval(() => {
                         playerInNewPosition = true;
                     }
                 });
-                if (playerInNewPosition) {
+                if (playerInNewPosition || MAP_DATA[getMapIndex(newPosition.x, newPosition.y)].secure) {
                     continue;
                 }
 

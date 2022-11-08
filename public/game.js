@@ -37,6 +37,13 @@ function moveTo(x, y) {
     });
 }
 
+function secure(x, y) {
+    socket.emit("secure", {
+        x: x,
+        y: y
+    });
+}
+
 function update() {
 
 }
@@ -48,7 +55,20 @@ function drawMap() {
     
     for (let x = 0; x < 10; x++) {
         for (let y = 0; y < 10; y++) {
-            const threatLevel = Math.floor(255 * (1 - map[y * 10 + x].threat));
+            // Draw roads
+            context.fillStyle = "#FFFFFF";
+            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, 10, STREET_SIZE);
+            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, STREET_SIZE, 10);
+
+            const tile = map[y * 10 + x];
+
+            if (tile.secure) {
+                context.fillStyle = "#000000";
+                context.fillRect((x * STREET_SIZE) + 13, 
+                                 (y * STREET_SIZE) + 13, 34, 34);
+            }
+
+            const threatLevel = Math.floor(255 * (1 - tile.threat));
             let hex = threatLevel.toString(16);
             if (hex.length === 1) {
                 hex = "0" + hex;
@@ -59,9 +79,6 @@ function drawMap() {
             context.fillRect((x * STREET_SIZE) + 15, 
                              (y * STREET_SIZE) + 15, 30, 30);
             
-            context.fillStyle = "#FFFFFF";
-            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, 10, STREET_SIZE);
-            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, STREET_SIZE, 10);
         }
     }
 }
@@ -96,10 +113,11 @@ function drawUI() {
         
         context.fillStyle = "#FFFFFF";
         context.font = "16px sans-serif";
+        const hoveredTile = map[y * 10 + x];
         const stats = [
-            "Building Type: " + map[y * 10 + x].type.name,
-            "Secure: No",
-            "Threat Level: " + (map[y * 10 + x].threat * 100).toFixed(0) + "%"
+            "Building Type: " + hoveredTile.type.name,
+            "Secure: " + (hoveredTile.secure ? "Yes" : "No"),
+            "Threat Level: " + (hoveredTile.threat * 100).toFixed(0) + "%"
         ];
 
         stats.forEach((stat, index) => {
@@ -126,8 +144,12 @@ function handleMouseUp(e) {
     const streetX = Math.floor(e.clientX / STREET_SIZE);
     const streetY = Math.floor(e.clientY / STREET_SIZE);
 
-    if (manhattanDistance(getMyPlayer(), { x: streetX, y: streetY}) === 1) {
+    const distanceFromPlayer = manhattanDistance(getMyPlayer(), { x: streetX, y: streetY});
+    if (distanceFromPlayer === 1) {
         moveTo(streetX, streetY);
+    }
+    else if (distanceFromPlayer === 0) {
+        secure(streetX, streetY);
     }
 }
 
