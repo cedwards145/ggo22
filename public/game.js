@@ -12,11 +12,13 @@ const STREET_SIZE = 50;
 var socket = io();
 let players = [];
 let id = null;
-let map = [];
+let map = null;
+const mousePosition = { x: 0, y: 0 };
 
 socket.on("update", (message) => {
     players = message.players;
     map = message.map;
+    console.log(map.reduce((sum, element) => sum + element, 0));
 });
 
 function getMyPlayer() {
@@ -37,6 +39,10 @@ function update() {
 }
 
 function drawMap() {
+    if (!map) {
+        return;
+    }
+    
     for (let x = 0; x < 10; x++) {
         for (let y = 0; y < 10; y++) {
             const threatLevel = Math.floor(255 * (1 - map[y * 10 + x]));
@@ -71,12 +77,26 @@ function drawPlayers() {
     });
 }
 
+function drawUI() {
+    const x = Math.floor(mousePosition.x / STREET_SIZE);
+    const y = Math.floor(mousePosition.y / STREET_SIZE);
+
+    if (x >= 0 && x < 10 && y >= 0 && y < 10) {
+        context.fillStyle = "#000000";
+        context.font = "16px sans-serif";
+        if (map) {
+            context.fillText(map[y * 10 + x].toFixed(2), x * STREET_SIZE, y * STREET_SIZE);
+        }
+    }
+}
+
 function draw() {
     context.fillStyle = "#AFAFAF";
     context.fillRect(0, 0, WIDTH, HEIGHT);
 
     drawMap();
     drawPlayers();
+    drawUI();
 }
 
 function manhattanDistance(a, b) {
@@ -92,7 +112,13 @@ function handleMouseUp(e) {
     }
 }
 
+function handleMouseMove(e) {
+    mousePosition.x = e.clientX;
+    mousePosition.y = e.clientY;
+}
+
 document.onmouseup = handleMouseUp;
+document.onmousemove = handleMouseMove;
 
 function tick() {
     update();

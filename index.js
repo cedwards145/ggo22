@@ -9,17 +9,32 @@ const io = new Server(httpServer);
 
 app.use(express.static("public"));
 
+const DIRECTIONS = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+];
+
 const MAP_SIZE = 10;
 const MAP_DATA = generateMap();
+
+function inBounds(x, y) {
+    return x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE;
+}
 
 function generateMap() {
     map = new Array(MAP_SIZE * MAP_SIZE);
     for (let x = 0; x < MAP_SIZE; x++) {
         for (let y = 0; y < MAP_SIZE; y++) {
-            map[y * MAP_SIZE + x] = Math.random();
+            map[getMapIndex(x, y)] = Math.random();
         }
     }
     return map;
+}
+
+function getMapIndex(x, y) {
+    return y * MAP_SIZE + x;
 }
 
 const players = [];
@@ -46,7 +61,7 @@ io.on("connection", (socket) => {
         name: "Player" + (players.length + 1)
     };
     players.push(player);
-    MAP_DATA[player.y * MAP_SIZE + player.x] = 0;
+    MAP_DATA[getMapIndex(player.x, player.y)] = 0;
 
     sendUpdate();
     
@@ -63,10 +78,27 @@ io.on("connection", (socket) => {
         const player = players[getPlayerIndexById(socket.id)];
         player.x = message.x;
         player.y = message.y;
-        MAP_DATA[player.y * MAP_SIZE + player.x] = 0;
+        MAP_DATA[getMapIndex(player.x, player.y)] = 0;
         sendUpdate();
     });
 });
+
+const tick = setInterval(() => {
+    const MAX_MOVEMENT = 0.1;
+    for (let x = 0; x < MAP_SIZE; x++) {
+        for (let y = 0; y < MAP_SIZE; y++) {
+            const direction = DIRECTIONS[Math.floor(Math.random()*DIRECTIONS.length)];
+            if (inBounds(x + direction.x, y + direction.y)) {
+                const existingPopulation = MAP_DATA[getMapIndex(x + direction.x, y + direction.y)];
+                const populationToMove = Math.min(MAX_MOVEMENT, 1 - existingPopulation, Math.random() * MAP_DATA[getMapIndex(x, y)]);
+
+                MAP_DATA[getMapIndex(x, y)] -= populationToMove;
+                MAP_DATA[getMapIndex(x + direction.x, y + direction.y)] += populationToMove;
+            }
+        }
+    }
+    sendUpdate();
+}, 500);
 
 const PORT = process.env.PORT || 3000
 
