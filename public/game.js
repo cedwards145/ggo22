@@ -48,7 +48,7 @@ function drawMap() {
     
     for (let x = 0; x < 10; x++) {
         for (let y = 0; y < 10; y++) {
-            const threatLevel = Math.floor(255 * (1 - map[y * 10 + x]));
+            const threatLevel = Math.floor(255 * (1 - map[y * 10 + x].threat));
             let hex = threatLevel.toString(16);
             if (hex.length === 1) {
                 hex = "0" + hex;
@@ -97,9 +97,9 @@ function drawUI() {
         context.fillStyle = "#FFFFFF";
         context.font = "16px sans-serif";
         const stats = [
-            "Building Type: Building",
+            "Building Type: " + map[y * 10 + x].type.name,
             "Secure: No",
-            "Threat Level: " + (map[y * 10 + x] * 100).toFixed(0) + "%"
+            "Threat Level: " + (map[y * 10 + x].threat * 100).toFixed(0) + "%"
         ];
 
         stats.forEach((stat, index) => {
