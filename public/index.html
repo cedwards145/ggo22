@@ -8,9 +8,27 @@
                 margin: 0px;
                 padding: 0px;
             }
+
+            #login-form {
+                position: absolute;
+                top: 0px;
+                margin: 0px;
+                z-index: 2;
+            }
+
+            #canvas {
+                position: absolute;
+                top: 0px;
+                z-index: 1;
+            }
         </style>
 
         <canvas id="canvas"></canvas>
+
+        <form id="login-form">
+            <input type="text" id="username-textbox" name="username" />
+            <button type="submit">Log In</button>
+        </form>
 
         <script src="/socket.io/socket.io.js"></script>
         <script src="/game.js"></script>

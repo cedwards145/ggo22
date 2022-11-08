@@ -15,10 +15,13 @@ let id = null;
 let map = null;
 const mousePosition = { x: 0, y: 0 };
 
-socket.on("update", (message) => {
+socket.on("update", message => {
     players = message.players;
     map = message.map;
-    console.log(map.reduce((sum, element) => sum + element, 0));
+});
+
+socket.on("join-ok", message => {
+    startGame();
 });
 
 function getMyPlayer() {
@@ -81,12 +84,28 @@ function drawUI() {
     const x = Math.floor(mousePosition.x / STREET_SIZE);
     const y = Math.floor(mousePosition.y / STREET_SIZE);
 
-    if (x >= 0 && x < 10 && y >= 0 && y < 10) {
+    if (map && x >= 0 && x < 10 && y >= 0 && y < 10) {
+        context.globalAlpha = 0.75;
         context.fillStyle = "#000000";
+        const topX = (x + 1.5) * STREET_SIZE;
+        const topY = y * STREET_SIZE;
+        const boxWidth = 200;
+        const boxHeight = 100;
+
+        context.fillRect(topX, topY, boxWidth, boxHeight);
+        
+        context.fillStyle = "#FFFFFF";
         context.font = "16px sans-serif";
-        if (map) {
-            context.fillText(map[y * 10 + x].toFixed(2), x * STREET_SIZE, y * STREET_SIZE);
-        }
+        const stats = [
+            "Building Type: Building",
+            "Secure: No",
+            "Threat Level: " + (map[y * 10 + x] * 100).toFixed(0) + "%"
+        ];
+
+        stats.forEach((stat, index) => {
+            context.fillText(stat, topX + 2, topY + (index * 18) + 2);
+        });
+        context.globalAlpha = 1;
     }
 }
 
@@ -117,13 +136,31 @@ function handleMouseMove(e) {
     mousePosition.y = e.clientY;
 }
 
-document.onmouseup = handleMouseUp;
-document.onmousemove = handleMouseMove;
+function handleLoginSubmit(e) {
+    e.preventDefault(true);
+    const username = document.getElementById("username-textbox").value;
+    socket.emit("join", {
+        username: username
+    });
+}
+
+const loginForm = document.getElementById("login-form");
+loginForm.onsubmit = handleLoginSubmit;
 
 function tick() {
+    document.onmouseup = handleMouseUp;
+    document.onmousemove = handleMouseMove;
+
     update();
     draw();
     requestAnimationFrame(tick);
 }
 
-requestAnimationFrame(tick);
+function startGame() {
+    loginForm.remove();
+    requestAnimationFrame(tick);
+}
+
+// Auto-login for testing, remove for production!
+console.warn("Auto-login running, should not see this in production");
+socket.emit("join", {username: "Player 1"});

@@ -54,21 +54,25 @@ function sendUpdate() {
 
 io.on("connection", (socket) => {
     console.log("User connected");
-    const player = {
-        id: socket.id,
-        x: Math.round(Math.random() * (MAP_SIZE - 1)),
-        y: Math.round(Math.random() * (MAP_SIZE - 1)),
-        name: "Player" + (players.length + 1)
-    };
-    players.push(player);
-    MAP_DATA[getMapIndex(player.x, player.y)] = 0;
-
-    sendUpdate();
     
     // Disconnect handler
     socket.on("disconnect", () => {
         console.log("User disconnected");
         players.splice(getPlayerIndexById(socket.id), 1);
+        sendUpdate();
+    });
+
+    // Join game handler
+    socket.on("join", message => {
+        const player = {
+            id: socket.id,
+            x: Math.round(Math.random() * (MAP_SIZE - 1)),
+            y: Math.round(Math.random() * (MAP_SIZE - 1)),
+            name: message.username
+        };
+        players.push(player);
+        MAP_DATA[getMapIndex(player.x, player.y)] = 0;
+        socket.emit("join-ok", {});
         sendUpdate();
     });
 
@@ -88,12 +92,27 @@ const tick = setInterval(() => {
     for (let x = 0; x < MAP_SIZE; x++) {
         for (let y = 0; y < MAP_SIZE; y++) {
             const direction = DIRECTIONS[Math.floor(Math.random()*DIRECTIONS.length)];
-            if (inBounds(x + direction.x, y + direction.y)) {
-                const existingPopulation = MAP_DATA[getMapIndex(x + direction.x, y + direction.y)];
+            const newPosition = {
+                x: x + direction.x,
+                y: y + direction.y
+            };
+
+            if (inBounds(newPosition.x, newPosition.y)) {
+                let playerInNewPosition = false;
+                players.forEach(p => {
+                    if (p.x === newPosition.x && p.y === newPosition.y) {
+                        playerInNewPosition = true;
+                    }
+                });
+                if (playerInNewPosition) {
+                    continue;
+                }
+
+                const existingPopulation = MAP_DATA[getMapIndex(newPosition.x, newPosition.y)];
                 const populationToMove = Math.min(MAX_MOVEMENT, 1 - existingPopulation, Math.random() * MAP_DATA[getMapIndex(x, y)]);
 
                 MAP_DATA[getMapIndex(x, y)] -= populationToMove;
-                MAP_DATA[getMapIndex(x + direction.x, y + direction.y)] += populationToMove;
+                MAP_DATA[getMapIndex(newPosition.x, newPosition.y)] += populationToMove;
             }
         }
     }
