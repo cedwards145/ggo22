@@ -7,7 +7,12 @@ context.textBaseline = "top";
 const WIDTH = window.innerWidth;
 const HEIGHT = window.innerHeight;
 
-const STREET_SIZE = 50;
+const BUILDING_SIZE = 50;
+const ROAD_SIZE = 20;
+const STREET_SIZE = BUILDING_SIZE + ROAD_SIZE;
+
+const iconSet = new Image();
+iconSet.src = "/icons.png";
 
 var socket = io();
 let players = [];
@@ -56,16 +61,25 @@ function drawMap() {
     for (let x = 0; x < 10; x++) {
         for (let y = 0; y < 10; y++) {
             // Draw roads
-            context.fillStyle = "#FFFFFF";
-            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, 10, STREET_SIZE);
-            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, STREET_SIZE, 10);
+            context.fillStyle = "#333333";
+            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, ROAD_SIZE, STREET_SIZE);
+            context.fillRect(x * STREET_SIZE, y * STREET_SIZE, STREET_SIZE, ROAD_SIZE);
 
-            const tile = map[y * 10 + x];
+            context.fillStyle = "#FFFFFF";
+            context.fillRect(x * STREET_SIZE + ((ROAD_SIZE - 2) / 2), 
+                             y * STREET_SIZE, 
+                             2, STREET_SIZE);
+            context.fillRect(x * STREET_SIZE, 
+                             y * STREET_SIZE + ((ROAD_SIZE - 2) / 2), 
+                             STREET_SIZE, 2);
+
+            const tile = map.tiles[y * 10 + x];
 
             if (tile.secure) {
                 context.fillStyle = "#000000";
-                context.fillRect((x * STREET_SIZE) + 13, 
-                                 (y * STREET_SIZE) + 13, 34, 34);
+                context.fillRect((x * STREET_SIZE) + ROAD_SIZE, 
+                                 (y * STREET_SIZE) + ROAD_SIZE, 
+                                 BUILDING_SIZE, BUILDING_SIZE);
             }
 
             const threatLevel = Math.floor(255 * (1 - tile.threat));
@@ -73,12 +87,19 @@ function drawMap() {
             if (hex.length === 1) {
                 hex = "0" + hex;
             }
+            
+            // TODO: Fix this to properly index into sheet
+            const iconX = tile.type.icon * 50;
+            const iconY = 0;
+
+
             const fill = "#FF" + hex + hex;
             context.fillStyle = fill;
-            //context.fillStyle = "#F1F3F4";
-            context.fillRect((x * STREET_SIZE) + 15, 
-                             (y * STREET_SIZE) + 15, 30, 30);
-            
+            context.fillRect((x * STREET_SIZE) + ROAD_SIZE, 
+                             (y * STREET_SIZE) + ROAD_SIZE, 
+                             BUILDING_SIZE, BUILDING_SIZE);
+
+            context.drawImage(iconSet, iconX, iconY, 50, 50, (x * STREET_SIZE) + ROAD_SIZE, (y * STREET_SIZE + ROAD_SIZE), 50, 50);
         }
     }
 }
@@ -113,7 +134,7 @@ function drawUI() {
         
         context.fillStyle = "#FFFFFF";
         context.font = "16px sans-serif";
-        const hoveredTile = map[y * 10 + x];
+        const hoveredTile = map.tiles[y * 10 + x];
         const stats = [
             "Building Type: " + hoveredTile.type.name,
             "Secure: " + (hoveredTile.secure ? "Yes" : "No"),

@@ -5,6 +5,7 @@ const http = require("http");
 const httpServer = http.createServer(app);
 
 const { Server } = require("socket.io");
+const mapGenerator = require("./mapgen");
 const io = new Server(httpServer);
 
 app.use(express.static("public"));
@@ -16,35 +17,14 @@ const DIRECTIONS = [
     { x: 0, y: -1 },
 ];
 
-const BUILDING_TYPES = [
-    { name: "House" },
-    { name: "Hospital" },
-    { name: "Power Station" }
-];
-
-const MAP_SIZE = 10;
-const MAP_DATA = generateMap();
+const map = mapGenerator.generateMap();
 
 function inBounds(x, y) {
-    return x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE;
-}
-
-function generateMap() {
-    map = new Array(MAP_SIZE * MAP_SIZE);
-    for (let x = 0; x < MAP_SIZE; x++) {
-        for (let y = 0; y < MAP_SIZE; y++) {
-            map[getMapIndex(x, y)] = {
-                threat: Math.random(),
-                type: BUILDING_TYPES[Math.floor(Math.random() * BUILDING_TYPES.length)],
-                secure: false
-            };
-        }
-    }
-    return map;
+    return x >= 0 && x < map.width && y >= 0 && y < map.height;
 }
 
 function getMapIndex(x, y) {
-    return y * MAP_SIZE + x;
+    return y * map.width + x;
 }
 
 const players = [];
@@ -58,7 +38,7 @@ function getPlayerIndexById(id) {
 function sendUpdate() {
     io.emit("update", {
         players: players,
-        map: MAP_DATA
+        map: map
     });
 }
 
@@ -76,12 +56,12 @@ io.on("connection", (socket) => {
     socket.on("join", message => {
         const player = {
             id: socket.id,
-            x: Math.round(Math.random() * (MAP_SIZE - 1)),
-            y: Math.round(Math.random() * (MAP_SIZE - 1)),
+            x: Math.round(Math.random() * (map.width - 1)),
+            y: Math.round(Math.random() * (map.height - 1)),
             name: message.username
         };
         players.push(player);
-        MAP_DATA[getMapIndex(player.x, player.y)].threat = 0;
+        map.tiles[getMapIndex(player.x, player.y)].threat = 0;
         socket.emit("join-ok", {});
         sendUpdate();
     });
@@ -92,21 +72,26 @@ io.on("connection", (socket) => {
         const player = players[getPlayerIndexById(socket.id)];
         player.x = message.x;
         player.y = message.y;
-        MAP_DATA[getMapIndex(player.x, player.y)].threat = 0;
+        map.tiles[getMapIndex(player.x, player.y)].threat = 0;
         sendUpdate();
     });
 
     // Secure building handler
     socket.on("secure", message => {
-        MAP_DATA[getMapIndex(message.x, message.y)].secure = true;
+        map.tiles[getMapIndex(message.x, message.y)].secure = true;
         sendUpdate();
     });
 });
 
 const tick = setInterval(() => {
     const MAX_MOVEMENT = 0.1;
-    for (let x = 0; x < MAP_SIZE; x++) {
-        for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < map.width; x++) {
+        for (let y = 0; y < map.height; y++) {
+            // Spawn additional zombies on lab tiles, capped to a threat of 1
+            if (map.tiles[getMapIndex(x, y)].type.name === "Secret Lab") {
+                map.tiles[getMapIndex(x, y)].threat = Math.min(map.tiles[getMapIndex(x, y)].threat + (Math.random() * 0.25), 1);
+            }
+
             const direction = DIRECTIONS[Math.floor(Math.random()*DIRECTIONS.length)];
             const newPosition = {
                 x: x + direction.x,
@@ -120,20 +105,20 @@ const tick = setInterval(() => {
                         playerInNewPosition = true;
                     }
                 });
-                if (playerInNewPosition || MAP_DATA[getMapIndex(newPosition.x, newPosition.y)].secure) {
+                if (playerInNewPosition || map.tiles[getMapIndex(newPosition.x, newPosition.y)].secure) {
                     continue;
                 }
 
-                const existingPopulation = MAP_DATA[getMapIndex(newPosition.x, newPosition.y)].threat;
-                const populationToMove = Math.min(MAX_MOVEMENT, 1 - existingPopulation, Math.random() * MAP_DATA[getMapIndex(x, y)].threat);
+                const existingPopulation = map.tiles[getMapIndex(newPosition.x, newPosition.y)].threat;
+                const populationToMove = Math.min(MAX_MOVEMENT, 1 - existingPopulation, Math.random() * map.tiles[getMapIndex(x, y)].threat);
 
-                MAP_DATA[getMapIndex(x, y)].threat -= populationToMove;
-                MAP_DATA[getMapIndex(newPosition.x, newPosition.y)].threat += populationToMove;
+                map.tiles[getMapIndex(x, y)].threat -= populationToMove;
+                map.tiles[getMapIndex(newPosition.x, newPosition.y)].threat += populationToMove;
             }
         }
     }
     sendUpdate();
-}, 500);
+}, 100);
 
 const memoryReporting = setInterval(() => {
     console.log((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + "MB");
@@ -142,5 +127,5 @@ const memoryReporting = setInterval(() => {
 const PORT = process.env.PORT || 3000
 
 httpServer.listen(PORT, () => {
-    console.log("Listening on port " + PORT);
+    console.log("Listening on http://localhost:" + PORT);
 });
